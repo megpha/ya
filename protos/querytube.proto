@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+service QueryTube {
+  rpc Query(QueryParam) returns (QueryResponse) {}
+}
+
+message QueryParam {
+  string q = 1;
+}
+
+message QueryResponse {
+  string id = 1;
+}
