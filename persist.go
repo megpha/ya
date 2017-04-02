@@ -41,7 +41,7 @@ func Channels() (results []Channel) {
 	return
 }
 
-func Persist(channel string, results []Video) {
+func Persist(results []Video) {
 	session, err := mgo.Dial(MONGO_URL)
 
 	if err != nil {
@@ -51,13 +51,13 @@ func Persist(channel string, results []Video) {
 	defer session.Close()
 
 	collectionHandler := session.DB(DB_NAME).C(VIDEO_COLLECTION)
-	collectionHandler.RemoveAll(bson.M{"channel": channel})
+	collectionHandler.DropCollection()
 
-	video_collection := collectionHandler.Bulk()
+	videoCollection := collectionHandler.Bulk()
 
 	for _, item := range results {
-		video_collection.Insert(item)
+		videoCollection.Insert(item)
 	}
 
-	video_collection.Run()
+	videoCollection.Run()
 }

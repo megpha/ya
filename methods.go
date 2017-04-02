@@ -27,26 +27,43 @@ func URL(resource string, params map[string]string) string {
 	return queryUrl
 }
 
-func Videos(channel string) []Video {
-	channelID := channelID(channel)
+type video struct {
+	Items []struct {
+		ID struct {
+			Value string `json:"videoId"`
+		}
+		Snippet struct {
+			Title       string `json:"title"`
+			Description string `json:"description"`
+		} `json:"snippet"`
+	} `json:"items"`
+
+	NextPageToken string `json:"nextPageToken"`
+}
+
+func Videos(channelName string, videoChannel chan<- []Video) {
+	channelID := channelID(channelName)
 
 	params := map[string]string{
 		"part":       "snippet",
 		"maxResults": "50",
 		"channelId":  channelID,
 	}
-	queryUrl := URL("search", params)
-	type videos struct {
-		Items []struct {
-			ID struct {
-				Value string `json:"videoId"`
-			}
-			Snippet struct {
-				Title       string `json:"title"`
-				Description string `json:"description"`
-			} `json:"snippet"`
-		} `json:"items"`
+
+	all := make([]Video, 250)
+
+	for i := 0; i < 5; i++ {
+		results, pageToken := videos(params, channelName)
+		params["pageToken"] = pageToken
+		all = append(all, results...)
 	}
+
+	videoChannel <- all
+}
+
+func videos(params map[string]string, channelName string) ([]Video, string) {
+	queryUrl := URL("search", params)
+
 	resp, err := http.Get(queryUrl)
 
 	if err != nil {
@@ -54,7 +71,7 @@ func Videos(channel string) []Video {
 	}
 
 	data, _ := ioutil.ReadAll(resp.Body)
-	var answer videos
+	var answer video
 	jsonErr := json.Unmarshal(data, &answer)
 
 	if jsonErr != nil {
@@ -64,10 +81,10 @@ func Videos(channel string) []Video {
 	results := make([]Video, len(answer.Items))
 
 	for i, item := range answer.Items {
-		results[i] = Video{item.Snippet.Title, item.Snippet.Description, item.ID.Value, channel}
+		results[i] = Video{item.Snippet.Title, item.Snippet.Description, item.ID.Value, channelName}
 	}
 
-	return results
+	return results, answer.NextPageToken
 }
 
 func channelID(channelHandle string) string {
@@ -92,6 +109,7 @@ func channelID(channelHandle string) string {
 			Id string
 		} `json:"items"`
 	}
+
 	var answer interface{}
 	json.Unmarshal(data, &answer)
 
@@ -101,5 +119,6 @@ func channelID(channelHandle string) string {
 	if jsonErr != nil {
 		log.Fatal(err)
 	}
+
 	return empty.Items[0].Id
 }
